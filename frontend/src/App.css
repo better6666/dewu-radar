@@ -589,6 +589,50 @@ body {
 .rank-metric.up { color: var(--up); }
 .rank-metric.down { color: var(--down); }
 
+/* ============================ 搬砖套利 ============================ */
+.arb-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+.arb-head-info { font-size: 14px; color: var(--text-2); }
+.arb-head-info b { color: var(--accent-2); font-size: 18px; }
+.arb-list { display: flex; flex-direction: column; gap: 10px; }
+.arb-card {
+  display: flex; align-items: center; gap: 14px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  transition: border-color 0.15s;
+}
+.arb-card:hover { border-color: var(--down); }
+.arb-rank {
+  width: 34px; height: 34px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--muted);
+  font-weight: 700; font-size: 14px;
+}
+.arb-card:nth-child(-n+3) .arb-rank { background: rgba(16,185,129,0.15); color: var(--down); }
+.arb-img { width: 52px; height: 52px; border-radius: 10px; object-fit: cover; background: #0b111c; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+.arb-info { flex: 1; min-width: 0; }
+.arb-title { font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.arb-code { font-size: 12px; color: var(--muted); margin: 4px 0 6px; }
+.arb-flow { display: flex; align-items: center; gap: 8px; font-size: 13px; flex-wrap: wrap; }
+.flow-from { color: var(--accent-2); }
+.flow-arrow { color: var(--muted); }
+.flow-to { color: var(--gold); }
+.flow-from b, .flow-to b { font-size: 15px; }
+.arb-profit { text-align: right; flex-shrink: 0; }
+.profit-val { font-size: 20px; font-weight: 800; color: var(--down); }
+.profit-rate { font-size: 13px; color: var(--down); font-weight: 600; }
+.profit-link {
+  display: inline-block; margin-top: 4px;
+  font-size: 12px; color: var(--accent-2);
+  text-decoration: none;
+  border: 1px solid rgba(79,140,255,0.4);
+  padding: 3px 10px; border-radius: 6px;
+}
+.profit-link:hover { background: rgba(79,140,255,0.12); }
+
 /* ============================ 响应式 ============================ */
 @media (max-width: 860px) {
   .stats-bar { grid-template-columns: repeat(2, 1fr); }

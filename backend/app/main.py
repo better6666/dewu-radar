@@ -300,6 +300,50 @@ def list_alerts(limit: int = 100):
     return {"items": [_row_to_dict(r) for r in db.list_alerts(limit=limit)]}
 
 
+@app.get("/api/arbitrage")
+def arbitrage(pages: int = 3, min_rate: float = 0.0, max_rate: float = 200.0):
+    """扫描得物搬砖套利机会：得物热门商品 → 各平台比价 → 利润排序。"""
+    from .arbitrage import DEFAULT_FEES, evaluate_opportunity, title_match
+    from .platforms.dewu import DewuAdapter
+    from .platforms.registry import get_adapters
+
+    dewu = DewuAdapter(_client)
+    adapters = get_adapters()
+    hot = dewu.hot_products(pages=pages)
+    opportunities = []
+    for p in hot:
+        article = (p.get("articleNumber") or "").strip()
+        title = p.get("title") or ""
+        dewu_sell = p.get("price")
+        if not article or article == title or not dewu_sell:
+            continue
+        quotes = []
+        for ad in adapters:
+            try:
+                qs = ad.search(article, limit=8)
+                quotes.extend(q for q in qs if title_match(title, q.get("title", "")))
+            except Exception:  # noqa: BLE001
+                continue
+        if not quotes:
+            continue
+        r = evaluate_opportunity(dewu_sell, quotes)
+        if r["profit"] is not None and r["profit"] > 0 and min_rate <= r["profitRate"] <= max_rate:
+            opportunities.append({
+                "articleNumber": article,
+                "title": title,
+                "logoUrl": p.get("logoUrl"),
+                "dewuPrice": dewu_sell,
+                "dewuSales": p.get("soldCountText"),
+                "netPrice": r["netPrice"],
+                "bestBuy": r["bestBuy"],
+                "profit": r["profit"],
+                "profitRate": r["profitRate"],
+                "quotes": r["quotes"],
+            })
+    opportunities.sort(key=lambda x: (x["profitRate"], x["profit"]), reverse=True)
+    return {"opportunities": opportunities, "fees": DEFAULT_FEES, "platforms": [a.name for a in adapters]}
+
+
 @app.on_event("startup")
 def startup():
     get_scheduler().start()

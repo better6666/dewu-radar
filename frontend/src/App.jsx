@@ -155,6 +155,58 @@ function Ranking({ rankings, onOpen }) {
 }
 
 // ---------------------------------------------------------------------------
+// 搬砖套利机会
+// ---------------------------------------------------------------------------
+function ArbitrageList({ opps, platforms, scanning, onScan }) {
+  if (scanning) return <Skeleton n={5} />
+  if (!opps.length) {
+    return (
+      <div className="empty">
+        <div className="empty-icon">🔄</div>
+        <div className="empty-title">暂无套利机会</div>
+        <div>点击「扫描搬砖」抓取得物热门商品，自动到 {platforms.join('、') || '各平台'} 比价找差价</div>
+        {!IS_STATIC && <button className="primary-btn big-empty" onClick={onScan}>🔍 扫描搬砖机会</button>}
+      </div>
+    )
+  }
+  return (
+    <>
+      <div className="arb-head">
+        <div className="arb-head-info">
+          发现 <b>{opps.length}</b> 个套利机会（利润率从高到低）
+          <span className="sec-note">利润 = 得物到手价 − 平台买入价 − 运费</span>
+        </div>
+        {!IS_STATIC && <button className="collect-btn" onClick={onScan}>↻ 重新扫描</button>}
+      </div>
+      <div className="arb-list">
+        {opps.map((o, i) => (
+          <div className="arb-card" key={o.articleNumber + i}>
+            <div className="arb-rank">#{i + 1}</div>
+            {o.logoUrl ? <img className="arb-img" src={o.logoUrl} alt="" loading="lazy" /> : <span className="arb-img noimg" />}
+            <div className="arb-info">
+              <div className="arb-title" title={o.title}>{o.title || '—'}</div>
+              <div className="arb-code">货号 {o.articleNumber} {o.dewuSales ? `· ${o.dewuSales}` : ''}</div>
+              <div className="arb-flow">
+                <span className="flow-from">得物卖出 <b>{fmt(o.dewuPrice)}</b></span>
+                <span className="flow-arrow">→ 到手 {fmt(o.netPrice)}</span>
+                <span className="flow-to">{o.bestBuy?.platform}买入 <b>{fmt(o.bestBuy?.price)}</b></span>
+              </div>
+            </div>
+            <div className="arb-profit">
+              <div className="profit-val">+{fmt(o.profit)}</div>
+              <div className="profit-rate">{fmtPct(o.profitRate)}</div>
+              {o.bestBuy?.link ? (
+                <a className="profit-link" href={o.bestBuy.link} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}>去买入 ↗</a>
+              ) : null}
+            </div>
+          </div>
+        ))}
+      </div>
+    </>
+  )
+}
+
+// ---------------------------------------------------------------------------
 // 详情弹窗
 // ---------------------------------------------------------------------------
 function Detail({ selected, onClose, onToggleWatch, alertPrice, setAlertPrice }) {
@@ -338,6 +390,9 @@ export default function App() {
   const [notify, setNotify] = useState({ channel: 'bark', enabled: false })
   const [testing, setTesting] = useState(false)
   const [sortKey, setSortKey] = useState('time')
+  const [opps, setOpps] = useState([])
+  const [arbPlatforms, setArbPlatforms] = useState([])
+  const [scanning, setScanning] = useState(false)
 
   const loadAll = async () => {
     try {
@@ -431,6 +486,17 @@ export default function App() {
     } catch (e) { setError(e.message) } finally { setCollecting(false) }
   }
 
+  const doArbitrage = async () => {
+    setScanning(true); setError(''); setNotice('')
+    setTab('arbitrage')
+    try {
+      const r = await api.arbitrage(3, 0)
+      setOpps(r.opportunities || [])
+      setArbPlatforms(r.platforms || [])
+      setNotice(`扫描完成：发现 ${r.opportunities?.length || 0} 个套利机会`)
+    } catch (e) { setError(e.message) } finally { setScanning(false) }
+  }
+
   const saveNotify = async () => {
     try { await api.saveSettings(notify); setNotice('通知设置已保存'); setShowNotify(false) }
     catch (e) { setError(e.message) }
@@ -480,6 +546,7 @@ export default function App() {
       <div className="tabs">
         <button className={tab === 'market' ? 'active' : ''} onClick={() => setTab('market')}>行情 · {products.length}</button>
         <button className={tab === 'ranking' ? 'active' : ''} onClick={() => setTab('ranking')}>榜单</button>
+        <button className={tab === 'arbitrage' ? 'active' : ''} onClick={doArbitrage}>搬砖套利</button>
         <button className={tab === 'watched' ? 'active' : ''} onClick={() => setTab('watched')}>监控中 · {watched.length}</button>
         <button className={tab === 'search' ? 'active' : ''} onClick={() => setTab('search')}>搜索{searchTotal != null ? ` · ${searchTotal}` : ''}</button>
         <button className={tab === 'alerts' ? 'active' : ''} onClick={() => setTab('alerts')}>告警 · {alerts.length}</button>
@@ -517,6 +584,10 @@ export default function App() {
 
         {!loading && tab === 'ranking' && (
           <Ranking rankings={rankings} onOpen={openProduct} />
+        )}
+
+        {!loading && tab === 'arbitrage' && (
+          <ArbitrageList opps={opps} platforms={arbPlatforms} scanning={scanning} onScan={doArbitrage} />
         )}
 
         {!loading && (tab === 'market' || tab === 'watched') && (

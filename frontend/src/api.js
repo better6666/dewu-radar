@@ -95,6 +95,9 @@ export const api = {
     const { alerts } = await loadStatic()
     return alerts
   },
+
+  arbitrage: (pages = 3, minRate = 0) =>
+    IS_DEV ? request(`/arbitrage?pages=${pages}&min_rate=${minRate}`) : Promise.resolve({ opportunities: [] }),
 }
 
 export { IS_DEV }
