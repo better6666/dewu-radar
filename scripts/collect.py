@@ -65,6 +65,29 @@ def notify(title: str, body: str) -> bool:
     return ok
 
 
+def send_summary(items: list, stats: dict) -> bool:
+    """生成并推送每日行情摘要。"""
+    with_premium = [p for p in items if p.get("premiumPct") is not None]
+    premium = sorted(with_premium, key=lambda x: -x["premiumPct"])[:5]
+    discount = sorted(with_premium, key=lambda x: x["premiumPct"])[:5]
+    price = sorted([p for p in items if p.get("latestPrice")], key=lambda x: -x["latestPrice"])[:5]
+
+    title = "📊 得物雷达 · 行情摘要"
+    body = f"收录商品：{stats.get('total', 0)} · 监控：{stats.get('watched', 0)}\n"
+    body += f"上涨 {stats.get('up', 0)} / 下跌 {stats.get('down', 0)} · 平均溢价 {stats.get('avgPremium')}%\n\n"
+    if premium:
+        body += "🔥 溢价榜\n" + "\n".join(
+            f"{i + 1}. {p['title'][:22]}  +{p['premiumPct']}%" for i, p in enumerate(premium)) + "\n\n"
+    if discount:
+        body += "💎 捡漏榜\n" + "\n".join(
+            f"{i + 1}. {p['title'][:22]}  {p['premiumPct']}%" for i, p in enumerate(discount)) + "\n\n"
+    if price:
+        body += "💰 高价榜\n" + "\n".join(
+            f"{i + 1}. {p['title'][:22]}  ¥{p['latestPrice']}" for i, p in enumerate(price))
+    print(f"[summary] 推送摘要")
+    return notify(title, body)
+
+
 def _yuan(v):
     if v is None:
         return None
@@ -265,6 +288,11 @@ def main() -> None:
     (OUT_DIR / "alerts.json").write_text(json.dumps({"items": alerts}, ensure_ascii=False), encoding="utf-8")
 
     print(f"[collect] 完成：商品 {total}，监控 {watched_n}，上涨 {up}，下跌 {down}，平均溢价 {avg_premium}")
+
+    # 7) 每日摘要推送（带 --summary 参数时）
+    if "--summary" in sys.argv:
+        stats_dict = {"total": total, "watched": watched_n, "up": up, "down": down, "avgPremium": avg_premium}
+        send_summary(out_items, stats_dict)
 
 
 if __name__ == "__main__":

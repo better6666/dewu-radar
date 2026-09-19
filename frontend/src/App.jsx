@@ -109,6 +109,52 @@ function Skeleton({ n = 8 }) {
 }
 
 // ---------------------------------------------------------------------------
+// 排行榜
+// ---------------------------------------------------------------------------
+function RankRow({ item, idx, metric, tone, onOpen }) {
+  return (
+    <div className="rank-row" onClick={() => onOpen(item)}>
+      <span className={`rank-no ${idx < 3 ? 'top' : ''}`}>{idx + 1}</span>
+      {item.logoUrl ? <img className="rank-img" src={item.logoUrl} alt="" loading="lazy" /> : <span className="rank-img noimg" />}
+      <div className="rank-info">
+        <div className="rank-title" title={item.title}>{item.title || '—'}</div>
+        <div className="rank-price">{fmt(item.latestPrice)}</div>
+      </div>
+      <span className={`rank-metric ${tone || ''}`}>{metric(item)}</span>
+    </div>
+  )
+}
+
+function RankColumn({ title, note, items, metric, tone, onOpen }) {
+  return (
+    <div className="rank-col">
+      <div className="rank-col-head">
+        <span className="rank-col-title">{title}</span>
+        <span className="rank-col-note">{note}</span>
+      </div>
+      {items.length === 0 ? (
+        <div className="empty small">暂无数据</div>
+      ) : (
+        items.map((it, i) => <RankRow key={it.spuId} item={it} idx={i} metric={metric} tone={tone} onOpen={onOpen} />)
+      )}
+    </div>
+  )
+}
+
+function Ranking({ rankings, onOpen }) {
+  return (
+    <div className="ranking">
+      <RankColumn title="🔥 溢价榜" note="溢价率最高" items={rankings.premiumTop}
+        metric={(p) => fmtPct(p.premiumPct)} tone="up" onOpen={onOpen} />
+      <RankColumn title="💎 捡漏榜" note="低于发售价最多" items={rankings.discountTop}
+        metric={(p) => fmtPct(p.premiumPct)} tone="down" onOpen={onOpen} />
+      <RankColumn title="💰 高价榜" note="市场价最高" items={rankings.priceTop}
+        metric={(p) => fmt(p.latestPrice)} tone="" onOpen={onOpen} />
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
 // 详情弹窗
 // ---------------------------------------------------------------------------
 function Detail({ selected, onClose, onToggleWatch, alertPrice, setAlertPrice }) {
@@ -323,6 +369,16 @@ export default function App() {
     return arr
   }, [products, sortKey])
 
+  // 榜单（top N）
+  const rankings = useMemo(() => {
+    const withPremium = products.filter((p) => p.premiumPct != null)
+    const premiumTop = [...withPremium].sort((a, b) => b.premiumPct - a.premiumPct).slice(0, 8)
+    const discountTop = [...withPremium].sort((a, b) => a.premiumPct - b.premiumPct).slice(0, 8)
+    const priceTop = products.filter((p) => p.latestPrice != null)
+      .sort((a, b) => b.latestPrice - a.latestPrice).slice(0, 8)
+    return { premiumTop, discountTop, priceTop }
+  }, [products])
+
   const doSearch = async () => {
     if (!query.trim()) return
     setLoading(true); setError('')
@@ -423,6 +479,7 @@ export default function App() {
 
       <div className="tabs">
         <button className={tab === 'market' ? 'active' : ''} onClick={() => setTab('market')}>行情 · {products.length}</button>
+        <button className={tab === 'ranking' ? 'active' : ''} onClick={() => setTab('ranking')}>榜单</button>
         <button className={tab === 'watched' ? 'active' : ''} onClick={() => setTab('watched')}>监控中 · {watched.length}</button>
         <button className={tab === 'search' ? 'active' : ''} onClick={() => setTab('search')}>搜索{searchTotal != null ? ` · ${searchTotal}` : ''}</button>
         <button className={tab === 'alerts' ? 'active' : ''} onClick={() => setTab('alerts')}>告警 · {alerts.length}</button>
@@ -456,6 +513,10 @@ export default function App() {
               <ProductCard key={p.spuId} p={p} onOpen={openProduct} onToggleWatch={(p) => toggleWatch(p, true)} />
             ))}</div>
           )
+        )}
+
+        {!loading && tab === 'ranking' && (
+          <Ranking rankings={rankings} onOpen={openProduct} />
         )}
 
         {!loading && (tab === 'market' || tab === 'watched') && (

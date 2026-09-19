@@ -1,0 +1,44 @@
+name: 每日行情摘要
+
+on:
+  schedule:
+    - cron: '30 0 * * *'   # UTC 0:30 = 北京时间 8:30
+  workflow_dispatch: {}
+
+permissions:
+  contents: write      # 允许提交数据
+
+jobs:
+  summary:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 设置 Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: 安装依赖
+        run: pip install -r scripts/requirements.txt
+
+      - name: 采集数据并推送摘要
+        run: python scripts/collect.py --summary
+        env:
+          DINGTALK_WEBHOOK: ${{ secrets.DINGTALK_WEBHOOK }}
+          BARK_URL: ${{ secrets.BARK_URL }}
+          SERVERCHAN_KEY: ${{ secrets.SERVERCHAN_KEY }}
+          WEBHOOK_URL: ${{ secrets.WEBHOOK_URL }}
+
+      - name: 提交数据变更
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add frontend/public/data
+          if ! git diff --cached --quiet; then
+            git commit -m "chore(data): 每日摘要数据 $(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+            git push
+          else
+            echo "数据无变化，跳过提交"
+          fi
