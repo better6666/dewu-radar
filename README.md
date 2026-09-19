@@ -2,6 +2,10 @@
 
 一个前后端分离的 Web 应用，用于监控**得物（Dewu/Poizon）**商品的行情：抓取真实价格、销量、各尺码报价，记录价格历史并展示走势。
 
+> 🌐 **在线地址**：https://better6666.github.io/dewu-radar/
+> 📦 **仓库**：https://github.com/better6666/dewu-radar
+> ⏰ 数据由 GitHub Actions 每 30 分钟自动抓取更新。
+
 ## 功能
 
 - ⚡ **一键采集热门**：从得物首页推荐流批量抓取热门商品（无需手动搜货号），一键填充行情库
@@ -24,21 +28,65 @@
 
 ```
 得物雷达/
-├── backend/            # FastAPI 后端
+├── backend/            # FastAPI 后端（本地开发模式用）
 │   ├── app/
 │   │   ├── main.py         # REST API
 │   │   ├── dewu_client.py  # 得物抓取客户端（签名 + RSA/AES 加解密）
 │   │   ├── db.py           # SQLite 存储
 │   │   ├── scheduler.py    # 定时监控调度
+│   │   ├── notify.py       # 推送通知
 │   │   └── config.py       # 配置
 │   └── requirements.txt
-├── frontend/           # React 前端
+├── frontend/           # React 前端（双模式：本地 API / 静态 JSON）
+│   ├── public/data/        # 静态行情数据（collect.py 生成，GitHub Pages 读取）
 │   └── src/
+├── scripts/            # GitHub Actions 抓取脚本
+│   ├── collect.py          # 独立采集脚本
+│   ├── watchlist.json      # 监控 + 告警价配置
+│   └── requirements.txt
+├── .github/workflows/  # 定时抓数据 + 部署 Pages
 ├── docs/得物API逆向.md   # 得物接口逆向说明
 └── README.md
 ```
 
-## 快速开始
+## 🚀 GitHub Pages 部署（推荐）
+
+本项目已配置为**全自动部署**：GitHub Actions 每 30 分钟抓取一次得物首页热门商品，生成静态 JSON，前端读取展示。
+
+- 页面：`https://<你的用户名>.github.io/dewu-radar/`
+- 数据文件：`frontend/public/data/*.json`（每次运行自动更新并提交回仓库）
+- 工作流：`.github/workflows/deploy.yml`
+
+### 配置监控与告警（线上版）
+
+编辑 `scripts/watchlist.json`：
+
+```json
+{
+  "collectPages": 4,
+  "watch": [
+    { "spuId": "86048591", "alertPrice": 450, "note": "CLOT 衬衫" }
+  ]
+}
+```
+
+- `spuId`：要监控的商品（可在页面「行情」里看到各商品的 spuId）
+- `alertPrice`：告警价（元），价格跌破时自动推送
+
+### 配置推送通知（线上版）
+
+在 GitHub 仓库 **Settings → Secrets and variables → Actions** 中配置以下任一 Secret：
+
+| Secret | 渠道 |
+|--------|------|
+| `BARK_URL` | Bark（iOS 推送） |
+| `SERVERCHAN_KEY` | Server酱（微信） |
+| `DINGTALK_WEBHOOK` | 钉钉机器人 |
+| `WEBHOOK_URL` | 自定义 Webhook |
+
+> 抓取脚本会检测价格跌破 `watchlist.json` 中的告警价，通过上述渠道推送通知。
+
+## 快速开始（本地开发）
 
 ### 1. 后端
 
