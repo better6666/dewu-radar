@@ -1,0 +1,7 @@
+{
+  "collectPages": 4,
+  "watch": [
+    { "spuId": "86048591", "alertPrice": 450, "note": "CLOT 衬衫" },
+    { "spuId": "27427389", "alertPrice": 3300, "note": "iPad 11 代" }
+  ]
+}

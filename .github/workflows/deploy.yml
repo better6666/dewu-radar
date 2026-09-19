@@ -1,0 +1,79 @@
+name: 采集数据并部署 Pages
+
+on:
+  schedule:
+    - cron: '*/30 * * * *'   # 每 30 分钟抓取一次
+  workflow_dispatch: {}        # 支持手动触发
+  push:
+    branches: [main]
+    paths-ignore:
+      - 'frontend/public/data/**'
+
+permissions:
+  contents: write      # 允许提交数据文件
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  collect-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 设置 Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: 安装抓取依赖
+        run: pip install -r scripts/requirements.txt
+
+      - name: 采集得物数据
+        run: python scripts/collect.py
+        env:
+          DINGTALK_WEBHOOK: ${{ secrets.DINGTALK_WEBHOOK }}
+          BARK_URL: ${{ secrets.BARK_URL }}
+          SERVERCHAN_KEY: ${{ secrets.SERVERCHAN_KEY }}
+          WEBHOOK_URL: ${{ secrets.WEBHOOK_URL }}
+
+      - name: 提交数据变更
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add frontend/public/data
+          if ! git diff --cached --quiet; then
+            git commit -m "chore(data): 更新行情数据 $(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+            git push
+          else
+            echo "数据无变化，跳过提交"
+          fi
+
+      - name: 设置 Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: 安装前端依赖
+        run: cd frontend && npm install
+
+      - name: 构建前端
+        run: cd frontend && npm run build
+
+      - name: 配置 Pages
+        uses: actions/configure-pages@v5
+
+      - name: 上传构建产物
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: frontend/dist
+
+      - name: 部署到 GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
