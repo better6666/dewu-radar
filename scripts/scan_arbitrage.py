@@ -76,10 +76,12 @@ def main() -> None:
     args = sys.argv[1:]
     pages = int(args[args.index("--pages") + 1]) if "--pages" in args else 3
     min_rate = float(args[args.index("--min-rate") + 1]) if "--min-rate" in args else 3.0
+    max_rate = float(args[args.index("--max-rate") + 1]) if "--max-rate" in args else 200.0
     out = args[args.index("--out") + 1] if "--out" in args else None
 
-    opps = scan(pages=pages, min_rate=min_rate)
-    print(f"\n[scan] 发现 {len(opps)} 个套利机会（利润率 ≥ {min_rate}%）：")
+    opps = scan(pages=pages, min_rate=min_rate, max_rate=max_rate)
+    adapters = get_adapters()
+    print(f"\n[scan] 发现 {len(opps)} 个套利机会（利润率 {min_rate}%~{max_rate}%）：")
     for o in opps[:20]:
         b = o["bestBuy"]
         print(f"  {o['articleNumber']}  {o['title'][:24]}  "
@@ -87,8 +89,12 @@ def main() -> None:
 
     if out:
         Path(out).parent.mkdir(parents=True, exist_ok=True)
-        Path(out).write_text(json.dumps({"opportunities": opps, "updatedAt": time.time()},
-                                        ensure_ascii=False), encoding="utf-8")
+        payload = {
+            "opportunities": opps,
+            "platforms": [a.name for a in adapters],
+            "updatedAt": time.time(),
+        }
+        Path(out).write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
         print(f"[scan] 已写入 {out}")
 
 

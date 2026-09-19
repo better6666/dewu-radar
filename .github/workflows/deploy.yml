@@ -43,6 +43,10 @@ jobs:
           SERVERCHAN_KEY: ${{ secrets.SERVERCHAN_KEY }}
           WEBHOOK_URL: ${{ secrets.WEBHOOK_URL }}
 
+      - name: 扫描搬砖套利机会
+        run: python scripts/scan_arbitrage.py --pages 2 --min-rate 3 --max-rate 200 --out frontend/public/data/arbitrage.json
+        continue-on-error: true
+
       - name: 提交数据变更
         run: |
           git config user.name "github-actions[bot]"

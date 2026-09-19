@@ -25,11 +25,14 @@ async function request(path, options = {}) {
 let _cache = null
 async function loadStatic() {
   if (_cache) return _cache
-  const get = (f) => fetch(`${DATA_BASE}/${f}.json`).then((r) => r.json())
-  const [products, stats, history, alerts] = await Promise.all([
-    get('products'), get('stats'), get('history'), get('alerts'),
+  const get = (f) =>
+    fetch(`${DATA_BASE}/${f}.json`)
+      .then((r) => (r.ok ? r.json() : null))
+      .catch(() => null)
+  const [products, stats, history, alerts, arbitrage] = await Promise.all([
+    get('products'), get('stats'), get('history'), get('alerts'), get('arbitrage'),
   ])
-  _cache = { products, stats, history, alerts }
+  _cache = { products, stats, history, alerts, arbitrage }
   return _cache
 }
 
@@ -96,8 +99,11 @@ export const api = {
     return alerts
   },
 
-  arbitrage: (pages = 3, minRate = 0) =>
-    IS_DEV ? request(`/arbitrage?pages=${pages}&min_rate=${minRate}`) : Promise.resolve({ opportunities: [] }),
+  arbitrage: async (pages = 3, minRate = 0) => {
+    if (IS_DEV) return request(`/arbitrage?pages=${pages}&min_rate=${minRate}`)
+    const { arbitrage } = await loadStatic()
+    return arbitrage || { opportunities: [], platforms: [] }
+  },
 }
 
 export { IS_DEV }
