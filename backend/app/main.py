@@ -47,6 +47,15 @@ class SettingsBody(BaseModel):
     config: dict
 
 
+class QuoteBody(BaseModel):
+    article_number: str
+    platform: str
+    price: float
+    sales: str = ""
+    link: str = ""
+    note: str = ""
+
+
 # snake_case → camelCase 字段映射（统一前后端契约）
 _FIELD_MAP = {
     "spu_id": "spuId",
@@ -307,6 +316,7 @@ def arbitrage(pages: int = 3, min_rate: float = 0.0, max_rate: float = 200.0):
     from .platforms.dewu import DewuAdapter
     from .platforms.registry import get_adapters
 
+    db = get_db()
     dewu = DewuAdapter(_client)
     adapters = get_adapters()
     hot = dewu.hot_products(pages=pages)
@@ -324,6 +334,17 @@ def arbitrage(pages: int = 3, min_rate: float = 0.0, max_rate: float = 200.0):
                 quotes.extend(q for q in qs if title_match(title, q.get("title", "")))
             except Exception:  # noqa: BLE001
                 continue
+        # 手动报价（覆盖自动抓取不可行的平台：淘宝/京东/拼多多/唯品会）
+        for mq in db.manual_quotes(article):
+            quotes.append({
+                "platform": mq["platform"],
+                "title": f"{mq['platform']} 手动报价",
+                "price": mq["price"],
+                "sales": mq["sales"],
+                "link": mq["link"],
+                "skuId": None,
+                "manual": True,
+            })
         if not quotes:
             continue
         r = evaluate_opportunity(dewu_sell, quotes)
@@ -342,6 +363,30 @@ def arbitrage(pages: int = 3, min_rate: float = 0.0, max_rate: float = 200.0):
             })
     opportunities.sort(key=lambda x: (x["profitRate"], x["profit"]), reverse=True)
     return {"opportunities": opportunities, "fees": DEFAULT_FEES, "platforms": [a.name for a in adapters]}
+
+
+@app.post("/api/quotes")
+def add_quote(body: QuoteBody):
+    """添加/更新手动报价（用于自动抓取不可行的平台）。"""
+    db = get_db()
+    quote_id = db.upsert_manual_quote(
+        body.article_number, body.platform, body.price, body.sales, body.link, body.note)
+    return {"ok": True, "quoteId": quote_id}
+
+
+@app.get("/api/quotes/{article_number}")
+def get_quotes(article_number: str):
+    """查询某货号的手动报价。"""
+    db = get_db()
+    return {"items": [_row_to_dict(r) for r in db.manual_quotes(article_number)]}
+
+
+@app.delete("/api/quotes/{quote_id}")
+def delete_quote(quote_id: int):
+    """删除手动报价。"""
+    db = get_db()
+    db.delete_manual_quote(quote_id)
+    return {"ok": True}
 
 
 @app.on_event("startup")

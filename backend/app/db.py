@@ -55,6 +55,20 @@ CREATE TABLE IF NOT EXISTS alerts (
     created_at REAL
 );
 
+CREATE TABLE IF NOT EXISTS manual_quotes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    article_number TEXT NOT NULL,
+    platform TEXT NOT NULL,
+    price REAL,
+    sales TEXT,
+    link TEXT,
+    note TEXT,
+    created_at REAL,
+    updated_at REAL
+);
+CREATE INDEX IF NOT EXISTS idx_manual_quotes_article
+    ON manual_quotes (article_number);
+
 CREATE TABLE IF NOT EXISTS settings (
     key TEXT PRIMARY KEY,
     value TEXT
@@ -198,6 +212,38 @@ class Database:
             "INSERT INTO settings (key, value) VALUES (?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
             (key, value),
         )
+
+    # ------------------------------------------------------------------
+    # 手动报价（覆盖自动抓取不可行的平台：淘宝/京东/拼多多/唯品会）
+    # ------------------------------------------------------------------
+    def upsert_manual_quote(self, article_number: str, platform: str, price: float,
+                            sales: str = "", link: str = "", note: str = "") -> int:
+        now = time.time()
+        rows = self._query(
+            "SELECT id FROM manual_quotes WHERE article_number=? AND platform=?",
+            (article_number, platform),
+        )
+        if rows:
+            self._execute(
+                "UPDATE manual_quotes SET price=?, sales=?, link=?, note=?, updated_at=? WHERE id=?",
+                (price, sales, link, note, now, rows[0]["id"]),
+            )
+            return rows[0]["id"]
+        cur = self._execute(
+            """INSERT INTO manual_quotes (article_number, platform, price, sales, link, note, created_at, updated_at)
+               VALUES (?,?,?,?,?,?,?,?)""",
+            (article_number, platform, price, sales, link, note, now, now),
+        )
+        return cur.lastrowid
+
+    def manual_quotes(self, article_number: str) -> List[sqlite3.Row]:
+        return self._query(
+            "SELECT * FROM manual_quotes WHERE article_number=? ORDER BY updated_at DESC",
+            (article_number,),
+        )
+
+    def delete_manual_quote(self, quote_id: int) -> None:
+        self._execute("DELETE FROM manual_quotes WHERE id=?", (quote_id,))
 
 
 _db: Optional[Database] = None

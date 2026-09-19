@@ -157,7 +157,7 @@ function Ranking({ rankings, onOpen }) {
 // ---------------------------------------------------------------------------
 // 搬砖套利机会
 // ---------------------------------------------------------------------------
-function ArbitrageList({ opps, platforms, scanning, onScan }) {
+function ArbitrageList({ opps, platforms, scanning, onScan, onAddQuote }) {
   if (scanning) return <Skeleton n={5} />
   if (!opps.length) {
     return (
@@ -176,7 +176,10 @@ function ArbitrageList({ opps, platforms, scanning, onScan }) {
           发现 <b>{opps.length}</b> 个套利机会（利润率从高到低）
           <span className="sec-note">利润 = 得物到手价 − 平台买入价 − 运费</span>
         </div>
-        {!IS_STATIC && <button className="collect-btn" onClick={onScan}>↻ 重新扫描</button>}
+        <div className="arb-actions">
+          {!IS_STATIC && <button className="ghost-btn" onClick={onAddQuote}>+ 手动录价</button>}
+          {!IS_STATIC && <button className="collect-btn" onClick={onScan}>↻ 重新扫描</button>}
+        </div>
       </div>
       <div className="arb-list">
         {opps.map((o, i) => (
@@ -203,6 +206,71 @@ function ArbitrageList({ opps, platforms, scanning, onScan }) {
         ))}
       </div>
     </>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// 手动录价弹窗
+// ---------------------------------------------------------------------------
+function QuoteForm({ onClose, onSave }) {
+  const [articleNumber, setArticleNumber] = useState('')
+  const [platform, setPlatform] = useState('淘宝')
+  const [price, setPrice] = useState('')
+  const [sales, setSales] = useState('')
+  const [link, setLink] = useState('')
+  const [saving, setSaving] = useState(false)
+
+  const handleSave = async () => {
+    if (!articleNumber.trim() || !price) return
+    setSaving(true)
+    try {
+      await onSave({
+        article_number: articleNumber.trim(),
+        platform,
+        price: parseFloat(price),
+        sales,
+        link,
+      })
+      onClose()
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="modal" onClick={onClose}>
+      <div className="modal-card narrow" onClick={(e) => e.stopPropagation()}>
+        <button className="close" onClick={onClose}>×</button>
+        <h2 className="modal-title">手动录入平台报价</h2>
+        <p className="modal-desc">用于自动抓取不可行的平台（淘宝/京东/拼多多/唯品会），与得物价算套利</p>
+        <div className="form-field">
+          <label>货号 / 型号</label>
+          <input value={articleNumber} onChange={(e) => setArticleNumber(e.target.value)} placeholder="如 DD1503-101" />
+        </div>
+        <div className="form-field">
+          <label>平台</label>
+          <select value={platform} onChange={(e) => setPlatform(e.target.value)}>
+            {['淘宝', '天猫', '京东', '拼多多', '唯品会', '苏宁易购'].map((p) => <option key={p}>{p}</option>)}
+          </select>
+        </div>
+        <div className="form-field">
+          <label>买入价（元）</label>
+          <input type="number" step="0.01" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="如 399.00" />
+        </div>
+        <div className="form-field">
+          <label>销量（可选）</label>
+          <input value={sales} onChange={(e) => setSales(e.target.value)} placeholder="如 已售1.2万" />
+        </div>
+        <div className="form-field">
+          <label>商品链接（可选）</label>
+          <input value={link} onChange={(e) => setLink(e.target.value)} placeholder="https://..." />
+        </div>
+        <div className="form-actions">
+          <button className="ghost-btn" onClick={onClose}>取消</button>
+          <button className="primary-btn" onClick={handleSave} disabled={saving}>{saving ? '保存中…' : '保存'}</button>
+        </div>
+      </div>
+    </div>
   )
 }
 
@@ -393,6 +461,7 @@ export default function App() {
   const [opps, setOpps] = useState([])
   const [arbPlatforms, setArbPlatforms] = useState([])
   const [scanning, setScanning] = useState(false)
+  const [showQuoteForm, setShowQuoteForm] = useState(false)
 
   const loadAll = async () => {
     try {
@@ -497,6 +566,12 @@ export default function App() {
     } catch (e) { setError(e.message) } finally { setScanning(false) }
   }
 
+  const saveQuote = async (payload) => {
+    await api.addQuote(payload)
+    setNotice(`已录入 ${payload.platform} 报价：¥${payload.price}`)
+    await doArbitrage()
+  }
+
   const saveNotify = async () => {
     try { await api.saveSettings(notify); setNotice('通知设置已保存'); setShowNotify(false) }
     catch (e) { setError(e.message) }
@@ -587,7 +662,7 @@ export default function App() {
         )}
 
         {!loading && tab === 'arbitrage' && (
-          <ArbitrageList opps={opps} platforms={arbPlatforms} scanning={scanning} onScan={doArbitrage} />
+          <ArbitrageList opps={opps} platforms={arbPlatforms} scanning={scanning} onScan={doArbitrage} onAddQuote={() => setShowQuoteForm(true)} />
         )}
 
         {!loading && (tab === 'market' || tab === 'watched') && (
@@ -641,6 +716,10 @@ export default function App() {
       {showNotify && (
         <NotifyModal notify={notify} setNotify={setNotify} onClose={() => setShowNotify(false)}
           onSave={saveNotify} onTest={testNotify} testing={testing} />
+      )}
+
+      {showQuoteForm && (
+        <QuoteForm onClose={() => setShowQuoteForm(false)} onSave={saveQuote} />
       )}
     </div>
   )

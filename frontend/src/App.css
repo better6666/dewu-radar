@@ -506,6 +506,18 @@ body {
   font-size: 14px;
 }
 .form-field input:focus { border-color: var(--accent); }
+.form-field select {
+  width: 100%;
+  padding: 10px 13px;
+  border-radius: 9px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  outline: none;
+  font-size: 14px;
+  cursor: pointer;
+}
+.form-field select:focus { border-color: var(--accent); }
 .channel-tabs { display: flex; flex-wrap: wrap; gap: 8px; }
 .channel-tabs button {
   padding: 8px 14px;
@@ -593,6 +605,7 @@ body {
 .arb-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
 .arb-head-info { font-size: 14px; color: var(--text-2); }
 .arb-head-info b { color: var(--accent-2); font-size: 18px; }
+.arb-actions { display: flex; align-items: center; gap: 8px; }
 .arb-list { display: flex; flex-direction: column; gap: 10px; }
 .arb-card {
   display: flex; align-items: center; gap: 14px;

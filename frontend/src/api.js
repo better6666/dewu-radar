@@ -104,6 +104,11 @@ export const api = {
     const { arbitrage } = await loadStatic()
     return arbitrage || { opportunities: [], platforms: [] }
   },
+
+  addQuote: (payload) =>
+    request('/quotes', { method: 'POST', body: JSON.stringify(payload) }),
+  getQuotes: (article) => request(`/quotes/${encodeURIComponent(article)}`),
+  deleteQuote: (id) => request(`/quotes/${id}`, { method: 'DELETE' }),
 }
 
 export { IS_DEV }
